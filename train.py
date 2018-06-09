@@ -4,7 +4,6 @@ import tensorflow as tf
 import resnet_model
 import resnet_run_loop
 from multiprocessing import cpu_count
-from PIL import Image
 
 _HEIGHT = 256
 _WIDTH = 256
