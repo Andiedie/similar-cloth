@@ -52,12 +52,12 @@ def parse_record(raw_record, is_training):
         'image/object/lmk/ly8': tf.FixedLenFeature([], dtype=tf.int64)
     }
     features = tf.parse_single_example(raw_record, feature_map)
-    bbox = [
-        features['image/object/bbox/ymin'],
-        features['image/object/bbox/xmin'],
-        features['image/object/bbox/ymax'],
-        features['image/object/bbox/xmax']
-    ]
+    bbox = {
+        'ymin': features['image/object/bbox/ymin'],
+        'xmin': features['image/object/bbox/xmin'],
+        'ymax': features['image/object/bbox/ymax'],
+        'xmax': features['image/object/bbox/xmax']
+    }
 
     landmarks = [
         {
@@ -71,7 +71,12 @@ def parse_record(raw_record, is_training):
     origin_image = tf.reshape(tf.image.decode_jpeg(
         image_buffer), [_HEIGHT, _WIDTH, _NUM_CHANNELS])
 
-    cropped_image = tf.image.crop_to_bounding_box(origin_image, bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1])
+    bbox_ymin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['ymin'])
+    bbox_xmin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['xmin'])
+    bbox_ymax = tf.minimum(tf.constant(_HEIGHT, dtype=tf.int64), bbox['ymax'])
+    bbox_xmax = tf.minimum(tf.constant(_WIDTH, dtype=tf.int64), bbox['xmax'])
+    cropped_image = tf.image.crop_to_bounding_box(
+        origin_image, bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin)
 
     cropped_image = tf.image.resize_images(cropped_image, [_HEIGHT, _WIDTH])
 
@@ -81,17 +86,21 @@ def parse_record(raw_record, is_training):
 
     for i in range(_NUM_LANDMARK):
         try:
-            offset_height = tf.maximum(
-                landmarks[i]['height'] - int(_LOCAL_SIZE / 2), tf.constant(0, dtype=tf.int64))
-            offset_width = tf.maximum(
-                landmarks[i]['width'] - int(_LOCAL_SIZE / 2), tf.constant(0, dtype=tf.int64))
+            lmk_ymin = tf.maximum(tf.constant(
+                0, dtype=tf.int64), landmarks[i]['height'] - int(_LOCAL_SIZE / 2))
+            lmk_xmin = tf.maximum(tf.constant(
+                0, dtype=tf.int64), landmarks[i]['width'] - int(_LOCAL_SIZE / 2))
+            lmk_ymax = tf.minimum(tf.constant(
+                _HEIGHT, dtype=tf.int64), lmk_ymin + _LOCAL_SIZE)
+            lmk_xmax = tf.minimum(tf.constant(
+                _WIDTH, dtype=tf.int64), lmk_xmin + _LOCAL_SIZE)
             landmark_local = tf.image.crop_to_bounding_box(
-                origin_image, offset_height, offset_width, tf.constant(_LOCAL_SIZE, dtype=tf.int64), tf.constant(_LOCAL_SIZE, dtype=tf.int64))
+                origin_image, lmk_ymin, lmk_xmin, lmk_ymax - lmk_ymin, lmk_xmax - lmk_xmin)
             landmark_local = tf.image.resize_images(landmark_local, [_HEIGHT, _WIDTH])
             landmark_local = preprocess_image(landmark_local, is_training)
         except ValueError:
             landmark_local = tf.zeros(
-                [_NUM_CHANNELS, _HEIGHT, _WIDTH], tf.uint8)
+                [_HEIGHT, _WIDTH, _NUM_CHANNELS], tf.float32)
         images.append(landmark_local)
 
     image = tf.concat([cropped_image] + images, -1)
@@ -109,8 +118,6 @@ def preprocess_image(image, is_training):
 
         # Randomly flip the image horizontally.
         image = tf.image.random_flip_left_right(image)
-
-        image = tf.cast(image, dtype=tf.uint8)
 
     # Subtract off the mean and divide by the variance of the pixels.
     # image = tf.image.per_image_standardization(image)

@@ -335,10 +335,7 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
   # The padding is consistent and is based only on `kernel_size`, not on the
   # dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
   if strides > 1:
-      print('strides > 1')
       inputs = fixed_padding(inputs, kernel_size, data_format)
-  print('fixed padding done')
-  print(inputs)
 
   return tf.layers.conv2d(
       inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
@@ -439,15 +436,12 @@ class Model(object):
       # This provides a large performance boost on GPU. See
       # https://www.tensorflow.org/performance/performance_guide#data_formats
       inputs = tf.transpose(inputs, [0, 3, 1, 2])
-    print(inputs)
-    print(inputs.shape)
-    print(inputs.dtype)
-    print("self.num_filters ", self.num_filters)
-    print("self.kernel_size ", self.kernel_size)
-    print("self.conv_stride ", self.conv_stride)
+
+    tf.Print(inputs, ['Ready to conv2d', inputs])
     inputs = conv2d_fixed_padding(
         inputs=inputs, filters=self.num_filters, kernel_size=self.kernel_size,
         strides=self.conv_stride, data_format=self.data_format)
+    tf.Print(inputs, ['Ready to conv2d', inputs])
     inputs = tf.identity(inputs, 'initial_conv')
 
     if self.first_pool_size:

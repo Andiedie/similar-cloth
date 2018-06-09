@@ -210,7 +210,7 @@ def resnet_model_fn(features, labels, mode, model_class,
     """
 
     # Generate a summary node for the images
-    tf.summary.image('images', features, max_outputs=6)
+    tf.summary.image('images', features[:,:,:,0:3], max_outputs=6)
 
     model = model_class(resnet_size, data_format, version=version)
     logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
@@ -301,7 +301,7 @@ def validate_batch_size_for_multi_gpu(batch_size):
     Raises:
       ValueError: if no GPUs are found, or selected batch_size is invalid.
     """
-    from tensorflow.python.client import device_lib
+    from tensorflow.python.client import device_lib  # pylint: disable=E0611
 
     local_device_protos = device_lib.list_local_devices()
     num_gpus = sum([1 for d in local_device_protos if d.device_type == 'GPU'])
