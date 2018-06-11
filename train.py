@@ -35,7 +35,8 @@ def aspect_preserving_resize(image, size):
     image = tf.image.resize_image_with_crop_or_pad(image, size, size)
     return image
 
-def parse_record(raw_record, is_training):
+
+def parse_record(raw_record, is_training, no_lmk):
     feature_map = {
         'image/imgdata': tf.FixedLenFeature([], dtype=tf.string),
         'image/object/class/label': tf.FixedLenFeature([], dtype=tf.int64),
@@ -88,6 +89,8 @@ def parse_record(raw_record, is_training):
         origin_image, bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin)
 
     cropped_image = aspect_preserving_resize(cropped_image, _IMAGE_SIZE)
+    if (not no_lmk):
+        return cropped_image, label
 
     images = []
     for i in range(_NUM_LANDMARK):
@@ -112,14 +115,14 @@ def parse_record(raw_record, is_training):
     return image, label
 
 
-def input_fn(is_training, data_dir, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
+def input_fn(is_training, no_lmk, data_dir, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
     filenames = get_filenames(is_training, data_dir)
     dataset = tf.data.TFRecordDataset(
         filenames, num_parallel_reads=num_parallel_calls)
 
     num_images = is_training and _NUM_IMAGES['train'] or _NUM_IMAGES['test']
 
-    return resnet_run_loop.process_record_dataset(dataset, is_training, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
+    return resnet_run_loop.process_record_dataset(dataset, is_training, no_lmk, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
 
 
 def get_synth_input_fn():
@@ -196,13 +199,13 @@ def main(argv):
 
     flags = parser.parse_args(args=argv[1:])
 
-    flags.model_dir = './lmk-model' if flags.use_lmk else './no-lmk-model'
+    flags.model_dir = './no-lmk-model' if flags.no_lmk else './lmk-model'
 
     _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(True, flags.data_dir)[0]))
     _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(False, flags.data_dir)[0]))
 
     # batch_size=32
-    # use_lmk = True
+    # no-lmk = False
     # data_dir = './data',
     # model_dir = './lmk-model'
     # resnet_size = 50
