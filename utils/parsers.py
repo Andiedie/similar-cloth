@@ -60,6 +60,7 @@ from __future__ import print_function
 
 
 import argparse
+from multiprocessing import cpu_count
 
 
 class BaseParser(argparse.ArgumentParser):
@@ -154,7 +155,7 @@ class PerformanceParser(argparse.ArgumentParser):
     if num_parallel_calls:
       self.add_argument(
           "--num_parallel_calls", "-npc",
-          type=int, default=5,
+          type=int, default=cpu_count(),
           help="[default: %(default)s] The number of records that are "
                "processed in parallel  during input processing. This can be "
                "optimized per data set but for generally homogeneous data "
