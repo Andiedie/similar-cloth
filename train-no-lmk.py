@@ -131,7 +131,7 @@ def _get_block_sizes(resnet_size):
         return choices[resnet_size]
     except KeyError:
         err = ('Could not find layers for selected Resnet size.\n'
-            'Size received: {}; sizes allowed: {}.'.format(resnet_size, choices.keys()))
+               'Size received: {}; sizes allowed: {}.'.format(resnet_size, choices.keys()))
         raise ValueError(err)
 
 
@@ -161,8 +161,10 @@ def main(argv):
 
     flags = parser.parse_args(args=argv[1:])
 
-    _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(True, flags.data_dir)[0]))
-    _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(False, flags.data_dir)[0]))
+    _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(
+        get_filenames(True, flags.data_dir)[0]))
+    _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(
+        get_filenames(False, flags.data_dir)[0]))
 
     # batch_size=32
     # data_dir = '/tmp',
