@@ -32,23 +32,7 @@ def parse_record(raw_record, is_training):
         'image/object/bbox/xmin': tf.FixedLenFeature([], dtype=tf.int64),
         'image/object/bbox/ymin': tf.FixedLenFeature([], dtype=tf.int64),
         'image/object/bbox/xmax': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/bbox/ymax': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx1': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly1': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx2': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly2': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx3': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly3': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx4': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly4': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx5': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly5': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx6': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly6': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx7': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly7': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx8': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly8': tf.FixedLenFeature([], dtype=tf.int64)
+        'image/object/bbox/ymax': tf.FixedLenFeature([], dtype=tf.int64)
     }
     features = tf.parse_single_example(raw_record, feature_map)
     bbox = {
@@ -57,13 +41,6 @@ def parse_record(raw_record, is_training):
         'ymax': features['image/object/bbox/ymax'],
         'xmax': features['image/object/bbox/xmax']
     }
-
-    landmarks = [
-        {
-            'height': features['image/object/lmk/ly%d' % (i + 1)],
-            'width': features['image/object/lmk/lx%d' % (i + 1)]
-        } for i in range(_NUM_LANDMARK)
-    ]
     image_buffer = features['image/imgdata']
     label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
 
@@ -81,29 +58,7 @@ def parse_record(raw_record, is_training):
 
     cropped_image = preprocess_image(cropped_image, is_training)
 
-    images = []
-
-    for i in range(_NUM_LANDMARK):
-        try:
-            lmk_ymin = tf.maximum(tf.constant(
-                0, dtype=tf.int64), landmarks[i]['height'] - int(_LOCAL_SIZE / 2))
-            lmk_xmin = tf.maximum(tf.constant(
-                0, dtype=tf.int64), landmarks[i]['width'] - int(_LOCAL_SIZE / 2))
-            lmk_ymax = tf.minimum(tf.constant(
-                _HEIGHT, dtype=tf.int64), lmk_ymin + _LOCAL_SIZE)
-            lmk_xmax = tf.minimum(tf.constant(
-                _WIDTH, dtype=tf.int64), lmk_xmin + _LOCAL_SIZE)
-            landmark_local = tf.image.crop_to_bounding_box(
-                origin_image, lmk_ymin, lmk_xmin, lmk_ymax - lmk_ymin, lmk_xmax - lmk_xmin)
-            landmark_local = tf.image.resize_images(landmark_local, [_HEIGHT, _WIDTH])
-            landmark_local = preprocess_image(landmark_local, is_training)
-        except ValueError:
-            landmark_local = tf.zeros(
-                [_HEIGHT, _WIDTH, _NUM_CHANNELS], tf.float32)
-        images.append(landmark_local)
-
-    image = tf.concat([cropped_image] + images, -1)
-    return image, label
+    return cropped_image, label
 
 
 def preprocess_image(image, is_training):
