@@ -3,10 +3,8 @@ import sys
 import tensorflow as tf
 import resnet_model
 import resnet_run_loop
-from multiprocessing import cpu_count
 
-_HEIGHT = 256
-_WIDTH = 256
+_IMAGE_SIZE = 256
 _LOCAL_SIZE = 32
 _NUM_CHANNELS = 3
 _NUM_CLASSES = 23
@@ -24,6 +22,18 @@ def get_filenames(is_training, data_dir):
     else:
         return [os.path.join(data_dir, 'test.tfrecord')]
 
+
+def aspect_preserving_resize(image, size):
+    shape = tf.shape(image)
+    height, width = shape[0], shape[1]
+    height, width = tf.cast(height, tf.float32), tf.cast(width, tf.float32)
+    bigger_dim = tf.maximum(height, width)
+    scale_ratio = tf.cast(size, tf.float32) / bigger_dim
+    new_height = tf.cast(height * scale_ratio, tf.int32)
+    new_width = tf.cast(width * scale_ratio, tf.int32)
+    image = tf.image.resize_images(image, [new_height, new_width])
+    image = tf.image.resize_image_with_crop_or_pad(image, size, size)
+    return image
 
 def parse_record(raw_record, is_training):
     feature_map = {
@@ -68,21 +78,18 @@ def parse_record(raw_record, is_training):
     label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
 
     origin_image = tf.reshape(tf.image.decode_jpeg(
-        image_buffer), [_HEIGHT, _WIDTH, _NUM_CHANNELS])
+        image_buffer), [_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS])
 
     bbox_ymin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['ymin'])
     bbox_xmin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['xmin'])
-    bbox_ymax = tf.minimum(tf.constant(_HEIGHT, dtype=tf.int64), bbox['ymax'])
-    bbox_xmax = tf.minimum(tf.constant(_WIDTH, dtype=tf.int64), bbox['xmax'])
+    bbox_ymax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['ymax'])
+    bbox_xmax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['xmax'])
     cropped_image = tf.image.crop_to_bounding_box(
         origin_image, bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin)
 
-    cropped_image = tf.image.resize_images(cropped_image, [_HEIGHT, _WIDTH])
-
-    cropped_image = preprocess_image(cropped_image, is_training)
+    cropped_image = aspect_preserving_resize(cropped_image, _IMAGE_SIZE)
 
     images = []
-
     for i in range(_NUM_LANDMARK):
         try:
             lmk_ymin = tf.maximum(tf.constant(
@@ -90,51 +97,33 @@ def parse_record(raw_record, is_training):
             lmk_xmin = tf.maximum(tf.constant(
                 0, dtype=tf.int64), landmarks[i]['width'] - int(_LOCAL_SIZE / 2))
             lmk_ymax = tf.minimum(tf.constant(
-                _HEIGHT, dtype=tf.int64), lmk_ymin + _LOCAL_SIZE)
+                _IMAGE_SIZE, dtype=tf.int64), lmk_ymin + _LOCAL_SIZE)
             lmk_xmax = tf.minimum(tf.constant(
-                _WIDTH, dtype=tf.int64), lmk_xmin + _LOCAL_SIZE)
+                _IMAGE_SIZE, dtype=tf.int64), lmk_xmin + _LOCAL_SIZE)
             landmark_local = tf.image.crop_to_bounding_box(
                 origin_image, lmk_ymin, lmk_xmin, lmk_ymax - lmk_ymin, lmk_xmax - lmk_xmin)
-            landmark_local = tf.image.resize_images(landmark_local, [_HEIGHT, _WIDTH])
-            landmark_local = preprocess_image(landmark_local, is_training)
+            landmark_local = tf.image.resize_images(landmark_local, [_IMAGE_SIZE, _IMAGE_SIZE])
         except ValueError:
             landmark_local = tf.zeros(
-                [_HEIGHT, _WIDTH, _NUM_CHANNELS], tf.float32)
+                [_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS], tf.float32)
         images.append(landmark_local)
 
     image = tf.concat([cropped_image] + images, -1)
     return image, label
 
 
-def preprocess_image(image, is_training):
-    # if is_training:
-    #     # Resize the image to add extra pixels on each side.
-    #     image = tf.image.resize_image_with_crop_or_pad(
-    #         image, int(_HEIGHT*1.25), int(_WIDTH*1.25))
-
-    #     # Randomly crop a [_HEIGHT, _WIDTH] section of the image.
-    #     image = tf.random_crop(image, [_HEIGHT, _WIDTH, _NUM_CHANNELS])
-
-    #     # Randomly flip the image horizontally.
-    #     image = tf.image.random_flip_left_right(image)
-
-    # Subtract off the mean and divide by the variance of the pixels.
-    # image = tf.image.per_image_standardization(image)
-    return image
-
-
 def input_fn(is_training, data_dir, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
-    cpu_num = cpu_count()
     filenames = get_filenames(is_training, data_dir)
-    dataset = tf.data.TFRecordDataset(filenames, num_parallel_reads=cpu_num)
+    dataset = tf.data.TFRecordDataset(
+        filenames, num_parallel_reads=num_parallel_calls)
 
-    return resnet_run_loop.process_record_dataset(
-        dataset, is_training, batch_size, _NUM_IMAGES['train'],
-        parse_record, num_epochs, cpu_num, examples_per_epoch=_NUM_IMAGES['train'], multi_gpu=multi_gpu)
+    num_images = is_training and _NUM_IMAGES['train'] or _NUM_IMAGES['test']
+
+    return resnet_run_loop.process_record_dataset(dataset, is_training, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
 
 
 def get_synth_input_fn():
-  return resnet_run_loop.get_synth_input_fn(_HEIGHT, _WIDTH, _NUM_CHANNELS, _NUM_CLASSES)
+  return resnet_run_loop.get_synth_input_fn(_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS, _NUM_CLASSES)
 
 
 class Model(resnet_model.Model):
@@ -201,26 +190,27 @@ def main(argv):
         resnet_size_choices=[18, 34, 50, 101, 152, 200])
 
     parser.set_defaults(
-        train_epochs=100
+        train_epochs=100,
+        data_dir='./data'
     )
 
     flags = parser.parse_args(args=argv[1:])
+
+    flags.model_dir = './lmk-model' if flags.use_lmk else './no-lmk-model'
 
     _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(True, flags.data_dir)[0]))
     _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(False, flags.data_dir)[0]))
 
     # batch_size=32
-    # data_dir = '/tmp',
-    # data_format = None
-    # epochs_between_evals = 1
-    # export_dir = None
-    # max_train_steps = None
-    # model_dir = '/tmp'
-    # num_parallel_calls = 5
+    # use_lmk = True
+    # data_dir = './data',
+    # model_dir = './lmk-model'
     # resnet_size = 50
-    # train_epochs = 100
-    # use_synthetic_data = False
     # version = 2
+    # train_epochs = 100
+    # epochs_between_evals = 1
+    # max_train_steps = None
+    # use_synthetic_data = False
 
     input_function = flags.use_synthetic_data and get_synth_input_fn() or input_fn
 
