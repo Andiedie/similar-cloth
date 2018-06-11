@@ -12,8 +12,8 @@ _NUM_CHANNELS = 3
 _NUM_CLASSES = 23
 _NUM_LANDMARK = 8
 _NUM_IMAGES = {
-    'train': 36898,
-    'test': 15814
+    'train': 0,
+    'test': 0
 }
 _SHUFFLE_BUFFER = 1500
 
@@ -107,6 +107,7 @@ def parse_record(raw_record, is_training):
 
 
 def preprocess_image(image, is_training):
+    return image
     if is_training:
         # Resize the image to add extra pixels on each side.
         image = tf.image.resize_image_with_crop_or_pad(
@@ -205,6 +206,9 @@ def main(argv):
     )
 
     flags = parser.parse_args(args=argv[1:])
+
+    _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(True, flags.data_dir))
+    _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(False, flags.data_dir))
 
     # batch_size=32
     # data_dir = '/tmp',
