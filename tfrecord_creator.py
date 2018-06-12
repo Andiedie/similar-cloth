@@ -244,9 +244,13 @@ def main(argv):
             test_writer.write(example.SerializeToString())
         if (i % 1000 == 0):
             print(i, 'done')
-    print('bad bbox number', bad_num)
     train_writer.close()
     test_writer.close()
+    print('bad bbox number:', bad_num)
+    train_num = sum(1 for _ in tf.python_io.tf_record_iterator('./data/train.tfrecord'))
+    test_num = sum(1 for _ in tf.python_io.tf_record_iterator('./data/test.tfrecord'))
+    print('train data number:', train_num)
+    print('test data number:', test_num)
 
 
 if __name__ == '__main__':
