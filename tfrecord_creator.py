@@ -35,6 +35,7 @@ rank = [
     "WOMEN/Tees_Tanks"
 ]
 
+
 def make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2, ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8):
     label = filename[4:filename.find('/id')]
     label = rank.index(label)
@@ -83,6 +84,7 @@ def make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv
         'image/object/lmk/ly8': dataset_util.int64_feature(ly8)
     }))
 
+
 def main(argv):
     args = parser.parse_args(argv[1:])
     landmark_raw = []
@@ -104,8 +106,9 @@ def main(argv):
     print('writting...')
     train_writer = tf.python_io.TFRecordWriter('./data/train.tfrecord')
     test_writer = tf.python_io.TFRecordWriter('./data/test.tfrecord')
-    total_len = len(landmark_raw)
-    for i in range(total_len):
+    total_num = len(landmark_raw)
+    bad_num = 0
+    for i in range(total_num):
         landmark = landmark_raw[i]
         bbox = bbox_raw[i]
         filename = landmark[0]
@@ -114,6 +117,17 @@ def main(argv):
         miny = int(bbox[4])
         maxx = int(bbox[5])
         maxy = int(bbox[6])
+        # For checking bad bbox
+        bbox_height = maxy - miny
+        bbox_width = maxx - minx
+        min_dim = min(bbox_height, bbox_width)
+        max_dim = max(bbox_height, bbox_width)
+        flag = True if (max_dim / min_dim > 4.5 and cloth_type != 3) else False
+        if (flag):
+            bad_num += 1
+            total_num -= 1
+            continue
+
         if(cloth_type == 1):
             lv1 = int(landmark[3])
             lx1 = int(landmark[4])
@@ -179,7 +193,7 @@ def main(argv):
             lv8 = int(landmark[12])
             lx8 = int(landmark[13])
             ly8 = int(landmark[14])
-    
+
         if(cloth_type == 3):
             lv1 = int(landmark[3])
             lx1 = int(landmark[4])
@@ -212,8 +226,9 @@ def main(argv):
             lv8 = int(landmark[24])
             lx8 = int(landmark[25])
             ly8 = int(landmark[26])
-        
-        example = make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2, ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8)
+
+        example = make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2,
+                               ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8)
 
         if (args.sample > 0):
             if (i < args.sample):
@@ -223,14 +238,16 @@ def main(argv):
                 break
             continue
 
-        if (i < total_len * _TRAIN_RATE):
+        if (i < total_num * _TRAIN_RATE):
             train_writer.write(example.SerializeToString())
         else:
             test_writer.write(example.SerializeToString())
         if (i % 1000 == 0):
             print(i, 'done')
+    print('bad bbox number', bad_num)
     train_writer.close()
     test_writer.close()
+
 
 if __name__ == '__main__':
     tf.app.run()
