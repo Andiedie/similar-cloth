@@ -3,17 +3,18 @@ import sys
 import tensorflow as tf
 import resnet_model
 import resnet_run_loop
+import random
 
-_IMAGE_SIZE = 256
-_LOCAL_SIZE = 32
-_NUM_CHANNELS = 3
-_NUM_CLASSES = 23
-_NUM_LANDMARK = 8
-_NUM_IMAGES = {
+_IMAGE_SIZE = 256           # 原始图片大小和目标图片大小
+_LOCAL_SIZE = 32            # 截取的landmark小图大小
+_NUM_CHANNELS = 3           # 色彩通道数量
+_NUM_CLASSES = 23           # 类别数量
+_NUM_LANDMARK = 8           # landmark数量
+_NUM_IMAGES = {             # 数据集大小（自动获取）
     'train': 0,
     'test': 0
 }
-_SHUFFLE_BUFFER = 1500
+_BBOX_BOUNCE_RATE = 0.33    # BBox随机抖动大小
 
 
 def get_filenames(is_training, data_dir):
@@ -78,43 +79,56 @@ def parse_record(raw_record, is_training, no_lmk):
     image_buffer = features['image/imgdata']
     label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
 
-    origin_image = tf.reshape(tf.image.decode_jpeg(
-        image_buffer), [_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS])
+    image = preprocess_image(image_buffer, is_training, no_lmk, bbox, landmarks)
 
-    bbox_ymin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['ymin'])
-    bbox_xmin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['xmin'])
-    bbox_ymax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['ymax'])
-    bbox_xmax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['xmax'])
-    crop_window = tf.cast(
-        [bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin], dtype=tf.int32)
+    return image, label
 
-    cropped_image = tf.image.decode_and_crop_jpeg(image_buffer, crop_window, _NUM_CHANNELS)
+def preprocess_image(buffer, is_training, no_lmk, bbox, landmarks):
+    random_seed = random.randint(1, 10)
+    zero_bound = tf.constant(0, dtype=tf.int64)
+    max_bound = tf.constant(_IMAGE_SIZE, dtype=tf.int64)
+    origin_image = tf.reshape(tf.image.decode_jpeg(buffer), [
+                              _IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS])
 
+    bbox_ymin = tf.maximum(zero_bound, bbox['ymin'])
+    bbox_xmin = tf.maximum(zero_bound, bbox['xmin'])
+    bbox_ymax = tf.minimum(max_bound, bbox['ymax'])
+    bbox_xmax = tf.minimum(max_bound, bbox['xmax'])
+    bbox_height = bbox_ymax - bbox_ymin
+    bbox_width = bbox_xmax - bbox_xmin
+
+    cropped_image = tf.image.crop_to_bounding_box(
+        origin_image, bbox_ymin, bbox_xmin, bbox_height, bbox_width)
     cropped_image = aspect_preserving_resize(cropped_image, _IMAGE_SIZE)
+    cropped_image = tf.image.random_flip_left_right(
+        cropped_image, seed=random_seed)
+
     if (not no_lmk):
-        return cropped_image, label
+        return cropped_image
 
     images = []
     for i in range(_NUM_LANDMARK):
         try:
-            lmk_ymin = tf.maximum(tf.constant(
-                0, dtype=tf.int64), landmarks[i]['height'] - int(_LOCAL_SIZE / 2))
-            lmk_xmin = tf.maximum(tf.constant(
-                0, dtype=tf.int64), landmarks[i]['width'] - int(_LOCAL_SIZE / 2))
-            lmk_ymax = tf.minimum(tf.constant(
-                _IMAGE_SIZE, dtype=tf.int64), lmk_ymin + _LOCAL_SIZE)
-            lmk_xmax = tf.minimum(tf.constant(
-                _IMAGE_SIZE, dtype=tf.int64), lmk_xmin + _LOCAL_SIZE)
+            lmk_ymin = tf.maximum(
+                zero_bound, landmarks[i]['height'] - int(_LOCAL_SIZE / 2))
+            lmk_xmin = tf.maximum(
+                zero_bound, landmarks[i]['width'] - int(_LOCAL_SIZE / 2))
+            lmk_ymax = tf.minimum(max_bound, lmk_ymin + _LOCAL_SIZE)
+            lmk_xmax = tf.minimum(max_bound, lmk_xmin + _LOCAL_SIZE)
             landmark_local = tf.image.crop_to_bounding_box(
                 origin_image, lmk_ymin, lmk_xmin, lmk_ymax - lmk_ymin, lmk_xmax - lmk_xmin)
-            landmark_local = tf.image.resize_images(landmark_local, [_IMAGE_SIZE, _IMAGE_SIZE])
+            landmark_local = tf.image.resize_images(
+                landmark_local, [_IMAGE_SIZE, _IMAGE_SIZE])
+            landmark_local = tf.image.random_flip_left_right(
+                landmark_local, seed=random_seed)
         except ValueError:
             landmark_local = tf.zeros(
                 [_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS], tf.float32)
         images.append(landmark_local)
 
     image = tf.concat([cropped_image] + images, -1)
-    return image, label
+    return image
+    
 
 
 def input_fn(is_training, no_lmk, data_dir, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
