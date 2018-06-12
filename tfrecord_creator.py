@@ -8,7 +8,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--sample', default=0, type=int, help='sample size')
 
-_TRAIN_RATE = 0.8
+_TRAIN_RATE = 0.85
 rank = [
     "MEN/Denim",
     "MEN/Jackets_Vests",
