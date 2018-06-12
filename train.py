@@ -85,8 +85,9 @@ def parse_record(raw_record, is_training, no_lmk):
     bbox_xmin = tf.maximum(tf.constant(0, dtype=tf.int64), bbox['xmin'])
     bbox_ymax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['ymax'])
     bbox_xmax = tf.minimum(tf.constant(_IMAGE_SIZE, dtype=tf.int64), bbox['xmax'])
-    cropped_image = tf.image.crop_to_bounding_box(
-        origin_image, bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin)
+    crop_window = [bbox_ymin, bbox_xmin, bbox_ymax - bbox_ymin, bbox_xmax - bbox_xmin]
+
+    cropped_image = tf.image.decode_and_crop_jpeg(image_buffer, crop_window, _NUM_CHANNELS)
 
     cropped_image = aspect_preserving_resize(cropped_image, _IMAGE_SIZE)
     if (not no_lmk):
