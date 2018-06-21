@@ -6,7 +6,6 @@ import resnet_run_loop
 import preprocess_image as pi
 
 _NUM_CLASSES = 23
-_NUM_LANDMARK = 8
 _NUM_IMAGES = {
     'train': 0,
     'test': 0
@@ -56,7 +55,7 @@ def parse_record(raw_record, is_training, no_lmk):
         {
             'height': features['image/object/lmk/ly%d' % (i + 1)],
             'width': features['image/object/lmk/lx%d' % (i + 1)]
-        } for i in range(_NUM_LANDMARK)
+        } for i in range(pi._NUM_LANDMARK)
     ]
     image_buffer = features['image/imgdata']
     label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
