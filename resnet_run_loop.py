@@ -217,7 +217,8 @@ def resnet_model_fn(features, labels, mode, model_class,
 
     predictions = {
         'classes': tf.argmax(logits, axis=1),
-        'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
+        'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
+        'logits': logits
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -368,6 +369,21 @@ def resnet_main(flags, model_function, input_function, shape=None):
             'version': flags.version,
         })
 
+    if flags.predict:
+        import database
+        data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
+        def input_fn_pred():
+            return input_function(False, flags.no_lmk, data_path, flags.batch_size,
+                                  flags.epochs_between_evals,
+                                  flags.num_parallel_calls, flags.multi_gpu)
+        result = classifier.predict(input_fn=input_fn_pred)
+
+        count = 0
+        for one in result:
+            database.store(str(count), one['logits'])
+            count += 1
+        return
+
     if flags.benchmark_log_dir is not None:
         benchmark_logger = logger.BenchmarkLogger(flags.benchmark_log_dir)
         benchmark_logger.log_run_info("resnet")
@@ -383,7 +399,8 @@ def resnet_main(flags, model_function, input_function, shape=None):
         print('Starting a training cycle.')
 
         def input_fn_train():
-            return input_function(True, flags.no_lmk, flags.data_dir, flags.batch_size,
+            data_path = os.path.join(flags.data_dir, 'train.tfrecord')
+            return input_function(True, flags.no_lmk, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
 
@@ -394,7 +411,8 @@ def resnet_main(flags, model_function, input_function, shape=None):
         # Evaluate the model and print results
 
         def input_fn_eval():
-            return input_function(False, flags.no_lmk, flags.data_dir, flags.batch_size,
+            data_path = os.path.join(flags.data_dir, 'test.tfrecord')
+            return input_function(False, flags.no_lmk, data_path, flags.batch_size,
                                   1, flags.num_parallel_calls, flags.multi_gpu)
 
         # flags.max_train_steps is generally associated with testing and profiling.
@@ -457,4 +475,9 @@ class ResnetArgParser(argparse.ArgumentParser):
         self.add_argument(
             '--no_lmk', '-nolmk', type=bool, default=False,
             help='[default: %(default)s] Do not use landmark'
+        )
+
+        self.add_argument(
+            '--predict', '-pred', type=bool, default=False,
+            help='[default: %(default)s] Predict data dir'
         )

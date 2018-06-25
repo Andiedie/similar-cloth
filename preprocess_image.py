@@ -75,7 +75,7 @@ def preprocess(buffer, is_training, no_lmk, bbox, landmarks):
         cropped_image = tf.image.random_flip_left_right(
             cropped_image, seed=random_seed)
 
-    if (not no_lmk):
+    if no_lmk:
         return cropped_image
 
     images = []

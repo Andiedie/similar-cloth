@@ -7,6 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sample', default=0, type=int, help='sample size')
+parser.add_argument('--predict', default=None, nargs='+', type=str, help='specific image to predict')
 
 _TRAIN_RATE = 0.85
 rank = [
@@ -99,15 +100,19 @@ def main(argv):
     print('reading bbox...')
     bbox_raw = np.loadtxt(
         './data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
-    print('shuffling...')
-    combined = list(zip(landmark_raw, bbox_raw))
-    random.shuffle(combined)
-    landmark_raw[:], bbox_raw[:] = zip(*combined)
+    if args.predict is None:
+        print('shuffling...')
+        combined = list(zip(landmark_raw, bbox_raw))
+        random.shuffle(combined)
+        landmark_raw[:], bbox_raw[:] = zip(*combined)
     print('writting...')
-    train_writer = tf.python_io.TFRecordWriter('./data/train.tfrecord')
-    test_writer = tf.python_io.TFRecordWriter('./data/test.tfrecord')
+    if args.predict is None:
+        train_writer = tf.python_io.TFRecordWriter('./data/train.tfrecord')
+        test_writer = tf.python_io.TFRecordWriter('./data/test.tfrecord')
+    else:
+        pred_writer = tf.python_io.TFRecordWriter('./data/predict.tfrecord')
     total_num = len(landmark_raw)
-    bad_num = 0
+    # bad_num = 0
     for i in range(total_num):
         landmark = landmark_raw[i]
         bbox = bbox_raw[i]
@@ -117,18 +122,21 @@ def main(argv):
         miny = int(bbox[4])
         maxx = int(bbox[5])
         maxy = int(bbox[6])
+        if args.predict is not None:
+            if args.predict[0] != 'all' and filename not in args.predict:
+                continue
         # For checking bad bbox
-        bbox_height = maxy - miny
-        bbox_width = maxx - minx
-        min_dim = min(bbox_height, bbox_width)
-        max_dim = max(bbox_height, bbox_width)
-        flag = True if (max_dim / min_dim > 4.5 and cloth_type != 3) else False
-        if (flag):
-            bad_num += 1
-            total_num -= 1
-            continue
+        # bbox_height = maxy - miny
+        # bbox_width = maxx - minx
+        # min_dim = min(bbox_height, bbox_width)
+        # max_dim = max(bbox_height, bbox_width)
+        # flag = True if (max_dim / min_dim > 4.5 and cloth_type != 3) else False
+        # if (flag):
+        #     bad_num += 1
+        #     total_num -= 1
+        #     continue
 
-        if(cloth_type == 1):
+        if cloth_type == 1:
             lv1 = int(landmark[3])
             lx1 = int(landmark[4])
             ly1 = int(landmark[5])
@@ -161,7 +169,7 @@ def main(argv):
             lx8 = int(landmark[19])
             ly8 = int(landmark[20])
 
-        if(cloth_type == 2):
+        if cloth_type == 2:
             lv1 = -1
             lx1 = -1
             ly1 = -1
@@ -194,7 +202,7 @@ def main(argv):
             lx8 = int(landmark[13])
             ly8 = int(landmark[14])
 
-        if(cloth_type == 3):
+        if cloth_type == 3:
             lv1 = int(landmark[3])
             lx1 = int(landmark[4])
             ly1 = int(landmark[5])
@@ -238,19 +246,31 @@ def main(argv):
                 break
             continue
 
-        if (i < total_num * _TRAIN_RATE):
+        if args.predict is not None:
+            pred_writer.write(example.SerializeToString())
+        elif (i < total_num * _TRAIN_RATE):
             train_writer.write(example.SerializeToString())
         else:
             test_writer.write(example.SerializeToString())
         if (i % 1000 == 0):
             print(i, 'done')
-    train_writer.close()
-    test_writer.close()
-    print('bad bbox number:', bad_num)
-    train_num = sum(1 for _ in tf.python_io.tf_record_iterator('./data/train.tfrecord'))
-    test_num = sum(1 for _ in tf.python_io.tf_record_iterator('./data/test.tfrecord'))
-    print('train data number:', train_num)
-    print('test data number:', test_num)
+
+    # print('bad bbox number:', bad_num)
+    if args.predict is None:
+        train_writer.close()
+        test_writer.close()
+        train_num = sum(1 for _ in tf.python_io.tf_record_iterator(
+            './data/train.tfrecord'))
+        test_num = sum(1 for _ in tf.python_io.tf_record_iterator(
+            './data/test.tfrecord'))
+        print('train data number:', train_num)
+        print('test data number:', test_num)
+    else:
+        pred_writer.close()
+        pred_num = sum(1 for _ in tf.python_io.tf_record_iterator(
+            './data/predict.tfrecord'))
+        print('predict data number:', pred_num)
+    
 
 
 if __name__ == '__main__':

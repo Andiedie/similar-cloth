@@ -11,13 +11,6 @@ _NUM_IMAGES = {
     'test': 0
 }
 
-def get_filenames(is_training, data_dir):
-    if is_training:
-        return [os.path.join(data_dir, 'train.tfrecord')]
-    else:
-        return [os.path.join(data_dir, 'test.tfrecord')]
-
-
 def parse_record(raw_record, is_training, no_lmk):
     feature_map = {
         'image/imgdata': tf.FixedLenFeature([], dtype=tf.string),
@@ -65,10 +58,9 @@ def parse_record(raw_record, is_training, no_lmk):
     return image, label
 
 
-def input_fn(is_training, no_lmk, data_dir, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
-    filenames = get_filenames(is_training, data_dir)
+def input_fn(is_training, no_lmk, data_path, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
     dataset = tf.data.TFRecordDataset(
-        filenames, num_parallel_reads=num_parallel_calls)
+        [data_path], num_parallel_reads=num_parallel_calls)
 
     num_images = is_training and _NUM_IMAGES['train'] or _NUM_IMAGES['test']
 
@@ -147,8 +139,10 @@ def main(argv):
 
     flags.model_dir = './no-lmk-model' if flags.no_lmk else './lmk-model'
 
-    _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(True, flags.data_dir)[0]))
-    _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(get_filenames(False, flags.data_dir)[0]))
+    train_path = os.path.join(flags.data_dir, 'train.tfrecord')
+    test_path = os.path.join(flags.data_dir, 'test.tfrecord')
+    _NUM_IMAGES['train'] = sum(1 for _ in tf.python_io.tf_record_iterator(train_path))
+    _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(test_path))
 
     # batch_size=32
     # no-lmk = False
@@ -160,7 +154,8 @@ def main(argv):
     # epochs_between_evals = 1
     # max_train_steps = None
 
-    resnet_run_loop.resnet_main(flags, model_fn, input_fn)
+    resnet_run_loop.resnet_main(flags, model_fn, input_fn, shape=[
+                                pi._IMAGE_SIZE, pi._IMAGE_SIZE, pi._NUM_CHANNELS])
 
 
 if __name__ == '__main__':
