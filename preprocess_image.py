@@ -1,7 +1,7 @@
 import tensorflow as tf
 import random
 
-_BBOX_BOUNCE_RATE = 0.1
+_BBOX_BOUNCE_RATE = 0.2
 _IMAGE_SIZE = 256
 _LOCAL_SIZE = 32
 _NUM_CHANNELS = 3
@@ -24,10 +24,10 @@ def aspect_preserving_resize(image, size):
 def rand(num):
     return tf.random_uniform(
         [1],
-        minval=-num,
-        maxval=num,
+        minval=0,
+        maxval=num+1,
         dtype=tf.int64
-    )[0]
+    )[0] - num
 
 
 def bbox_bounce(bbox, is_training):
