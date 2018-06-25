@@ -154,8 +154,7 @@ def main(argv):
     # epochs_between_evals = 1
     # max_train_steps = None
 
-    resnet_run_loop.resnet_main(flags, model_fn, input_fn, shape=[
-                                pi._IMAGE_SIZE, pi._IMAGE_SIZE, pi._NUM_CHANNELS])
+    resnet_run_loop.resnet_main(flags, model_fn, input_fn)
 
 
 if __name__ == '__main__':
