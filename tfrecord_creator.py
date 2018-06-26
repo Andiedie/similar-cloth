@@ -7,7 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sample', default=0, type=int, help='sample size')
-parser.add_argument('--predict', default=None, nargs='+', type=str, help='specific image to predict')
+parser.add_argument('--predict', default=None, nargs='+', type=str, help='specific image to predict, can be all or random')
 
 _TRAIN_RATE = 0.85
 rank = [
@@ -111,6 +111,10 @@ def main(argv):
         test_writer = tf.python_io.TFRecordWriter('./data/test.tfrecord')
     else:
         pred_writer = tf.python_io.TFRecordWriter('./data/predict.tfrecord')
+        if args.predict[0] == 'random':
+            args.predict = [random.choice(landmark_raw)[0]]
+            print('random', args.predict)
+
     total_num = len(landmark_raw)
     # bad_num = 0
     for i in range(total_num):

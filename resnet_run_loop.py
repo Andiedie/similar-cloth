@@ -369,20 +369,32 @@ def resnet_main(flags, model_function, input_function, shape=None):
             'version': flags.version,
         })
 
-    if flags.predict:
+    if flags.build_database or flags.predict:
         import database
         data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
+
         def input_fn_pred():
             return input_function(False, flags.no_lmk, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
+
         result = classifier.predict(input_fn=input_fn_pred)
 
+    if flags.build_database:
         count = 0
         for one in result:
             database.store(str(count), one['logits'])
             count += 1
         return
+
+    if flags.predict:
+        import numpy as np
+        for one in result:
+            top = database.topN(one['logits'])
+            raw = np.loadtxt('./data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
+            path = raw[top][:,0]
+            print(path)
+            return
 
     if flags.benchmark_log_dir is not None:
         benchmark_logger = logger.BenchmarkLogger(flags.benchmark_log_dir)
@@ -474,10 +486,15 @@ class ResnetArgParser(argparse.ArgumentParser):
 
         self.add_argument(
             '--no_lmk', '-nolmk', type=bool, default=False,
-            help='[default: %(default)s] Do not use landmark'
+            help='[default: %(default)s] Use landmark or not'
         )
 
         self.add_argument(
             '--predict', '-pred', type=bool, default=False,
-            help='[default: %(default)s] Predict data dir'
+            help='[default: %(default)s] Predict a single example or not'
+        )
+
+        self.add_argument(
+            '--build_database', '-bdb', type=bool, default=False,
+            help='[default: %(default)s] Build database or not'
         )

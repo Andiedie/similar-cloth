@@ -1,7 +1,7 @@
 import tensorflow as tf
 import random
 
-_BBOX_BOUNCE_RATE = 0.2
+_BBOX_BOUNCE_RATE = 0.3
 _IMAGE_SIZE = 256
 _LOCAL_SIZE = 32
 _NUM_CHANNELS = 3
