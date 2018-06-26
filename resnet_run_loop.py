@@ -369,7 +369,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
             'version': flags.version,
         })
 
-    if flags.build_database or flags.predict:
+    if flags.build_database or flags.predict is not None:
         import database
         data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
 
@@ -387,10 +387,11 @@ def resnet_main(flags, model_function, input_function, shape=None):
             count += 1
         return
 
-    if flags.predict:
+    if flags.predict is not None:
         import numpy as np
         for one in result:
-            top = database.topN(one['logits'])
+            method = database._METHOD.Cosine_Similarity if flags.predict == 'cos' else database._METHOD.Euclidean_Distance
+            top = database.topN(one['logits'], method=method)
             raw = np.loadtxt('./data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
             path = raw[top][:,0]
             print(path)
@@ -490,8 +491,8 @@ class ResnetArgParser(argparse.ArgumentParser):
         )
 
         self.add_argument(
-            '--predict', '-pred', type=bool, default=False,
-            help='[default: %(default)s] Predict a single example or not'
+            '--predict', '-pred', type=str, default=None,
+            help='[default: %(default)s] Predict method, cos or euc'
         )
 
         self.add_argument(
