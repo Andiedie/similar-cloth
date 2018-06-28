@@ -11,7 +11,7 @@ _NUM_IMAGES = {
     'test': 0
 }
 
-def parse_record(raw_record, is_training, no_lmk):
+def parse_record(raw_record, is_training, use_lmk):
     feature_map = {
         'image/imgdata': tf.FixedLenFeature([], dtype=tf.string),
         'image/object/class/label': tf.FixedLenFeature([], dtype=tf.int64),
@@ -53,18 +53,18 @@ def parse_record(raw_record, is_training, no_lmk):
     image_buffer = features['image/imgdata']
     label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
 
-    image = pi.preprocess(image_buffer, is_training, no_lmk, bbox, landmarks)
+    image = pi.preprocess(image_buffer, is_training, use_lmk, bbox, landmarks)
 
     return image, label
 
 
-def input_fn(is_training, no_lmk, data_path, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
+def input_fn(is_training, use_lmk, data_path, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
     dataset = tf.data.TFRecordDataset(
         [data_path], num_parallel_reads=num_parallel_calls)
 
     num_images = is_training and _NUM_IMAGES['train'] or _NUM_IMAGES['test']
 
-    return resnet_run_loop.process_record_dataset(dataset, is_training, no_lmk, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
+    return resnet_run_loop.process_record_dataset(dataset, is_training, use_lmk, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
 
 
 class Model(resnet_model.Model):
@@ -137,7 +137,7 @@ def main(argv):
 
     flags = parser.parse_args(args=argv[1:])
 
-    flags.model_dir = './no-lmk-model' if flags.no_lmk else './lmk-model'
+    flags.model_dir = './lmk-model' if flags.use_lmk else './no-lmk-model'
 
     train_path = os.path.join(flags.data_dir, 'train.tfrecord')
     test_path = os.path.join(flags.data_dir, 'test.tfrecord')
@@ -145,16 +145,17 @@ def main(argv):
     _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(test_path))
 
     # batch_size=32
-    # no-lmk = False
+    # use-lmk = 0
     # data_dir = './data',
-    # model_dir = './lmk-model'
+    # model_dir = './no-lmk-model'
     # resnet_size = 50
     # version = 2
     # train_epochs = 100
     # epochs_between_evals = 1
     # max_train_steps = None
 
-    resnet_run_loop.resnet_main(flags, model_fn, input_fn)
+    resnet_run_loop.resnet_main(flags, model_fn, input_fn, shape=[
+                                pi._IMAGE_SIZE, pi._IMAGE_SIZE, pi._NUM_CHANNELS])
 
 
 if __name__ == '__main__':

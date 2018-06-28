@@ -38,7 +38,7 @@ from utils import logger
 ################################################################################
 # Functions for input processing.
 ################################################################################
-def process_record_dataset(dataset, is_training, no_lmk, batch_size, shuffle_buffer,
+def process_record_dataset(dataset, is_training, use_lmk, batch_size, shuffle_buffer,
                            parse_record_fn, num_epochs=1, num_parallel_calls=1,
                            examples_per_epoch=0, multi_gpu=False):
     """Given a Dataset with raw records, return an iterator over the records.
@@ -91,7 +91,7 @@ def process_record_dataset(dataset, is_training, no_lmk, batch_size, shuffle_buf
         dataset = dataset.take(batch_size * (total_examples // batch_size))
 
     # Parse the raw records into images and labels
-    dataset = dataset.map(lambda value: parse_record_fn(value, is_training, no_lmk),
+    dataset = dataset.map(lambda value: parse_record_fn(value, is_training, use_lmk),
                           num_parallel_calls=num_parallel_calls)
 
     dataset = dataset.batch(batch_size)
@@ -210,7 +210,8 @@ def resnet_model_fn(features, labels, mode, model_class,
     """
 
     # Generate a summary node for the images
-    tf.summary.image('images', features[:,:,:,0:3], max_outputs=6)
+    if mode != tf.estimator.ModeKeys.PREDICT:
+        tf.summary.image('images', features[:,:,:,0:3], max_outputs=6)
 
     model = model_class(resnet_size, data_format, version=version)
     logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
@@ -374,7 +375,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
         data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
 
         def input_fn_pred():
-            return input_function(False, flags.no_lmk, data_path, flags.batch_size,
+            return input_function(False, flags.use_lmk, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
 
@@ -413,7 +414,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
 
         def input_fn_train():
             data_path = os.path.join(flags.data_dir, 'train.tfrecord')
-            return input_function(True, flags.no_lmk, data_path, flags.batch_size,
+            return input_function(True, flags.use_lmk, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
 
@@ -425,7 +426,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
 
         def input_fn_eval():
             data_path = os.path.join(flags.data_dir, 'test.tfrecord')
-            return input_function(False, flags.no_lmk, data_path, flags.batch_size,
+            return input_function(False, flags.use_lmk, data_path, flags.batch_size,
                                   1, flags.num_parallel_calls, flags.multi_gpu)
 
         # flags.max_train_steps is generally associated with testing and profiling.
@@ -486,7 +487,7 @@ class ResnetArgParser(argparse.ArgumentParser):
         )
 
         self.add_argument(
-            '--no_lmk', '-nolmk', type=bool, default=False,
+            '--use_lmk', '-lmk', type=int, default=0,
             help='[default: %(default)s] Use landmark or not'
         )
 

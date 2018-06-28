@@ -60,7 +60,7 @@ def bbox_bounce(bbox, is_training):
     return bbox_ymin, bbox_xmin, bbox_height, bbox_width
 
 
-def preprocess(buffer, is_training, no_lmk, bbox, landmarks):
+def preprocess(buffer, is_training, use_lmk, bbox, landmarks):
     random_seed = random.randint(1, 10)
     origin_image = tf.reshape(tf.image.decode_jpeg(buffer), [
                               _IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS])
@@ -75,7 +75,7 @@ def preprocess(buffer, is_training, no_lmk, bbox, landmarks):
         cropped_image = tf.image.random_flip_left_right(
             cropped_image, seed=random_seed)
 
-    if no_lmk:
+    if not use_lmk:
         return cropped_image
 
     images = []
