@@ -2,11 +2,14 @@ import tensorflow as tf
 import os
 import main
 import preprocess_image as pi
+import pickle
+import database
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 __dirname = os.path.dirname(__file__)
 model_path = os.path.join(__dirname, './no-lmk-model')
+filename = pickle.load(open(os.path.join(__dirname, './filename.pickle'), 'rb'))
 
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 session_config = tf.ConfigProto(gpu_options=gpu_options)
@@ -37,5 +40,6 @@ def input_fn(image_path, ymin, xmin, ymax, xmax):
 def classify(image_path, ymin, xmin, ymax, xmax):
     result = classifier.predict(lambda: input_fn(
         image_path, ymin, xmin, ymax, xmax))
-    print(list(result))
-
+    vector = list(result)[0]['logits']
+    top = database.topN(vector)
+    return filename[top]
