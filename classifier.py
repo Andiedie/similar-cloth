@@ -56,6 +56,12 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5):
         ymin: The ordinate of the lower right point of the bounding box
         ymin: The abscissa of the lower right point of the bounding box
         top: Number of the similar clothes, default to 5
+    Returns:
+        list of filenames of the most similar cloths, like
+        [
+            'img/WOMEN/Blouses_Shirts/id_00000001/02_1_front.jpg',
+            'img/WOMEN/Blouses_Shirts/id_00000001/02_2_side.jpg'
+        ]
     """
     result = clf.predict(lambda: _input_fn(
         image_path, ymin, xmin, ymax, xmax))
@@ -75,6 +81,12 @@ def similar_cloth_v2(cropped, top=5):
         cropped: 3-D Tensor of shape [height, width, channels], represents
             the cropped image of the input cloth
         top: Number of the similar clothes, default to 5
+    Returns:
+        list of filenames of the most similar cloths, like
+        [
+            'img/WOMEN/Blouses_Shirts/id_00000001/02_1_front.jpg',
+            'img/WOMEN/Blouses_Shirts/id_00000001/02_2_side.jpg'
+        ]
     """
     result = clf.predict(lambda: _input_fn_v2(cropped))
     vector = list(result)[0]['logits']
