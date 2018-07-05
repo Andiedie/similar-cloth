@@ -60,8 +60,7 @@ def bbox_bounce(bbox, is_training):
     return bbox_ymin, bbox_xmin, bbox_height, bbox_width
 
 
-def preprocess(buffer, is_training, use_lmk, bbox, landmarks):
-    random_seed = random.randint(1, 10)
+def preprocess(buffer, is_training, bbox):
     origin_image = tf.reshape(tf.image.decode_jpeg(buffer), [
                               _IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS])
 
@@ -72,36 +71,6 @@ def preprocess(buffer, is_training, use_lmk, bbox, landmarks):
         origin_image, bbox_ymin, bbox_xmin, bbox_height, bbox_width)
     cropped_image = aspect_preserving_resize(cropped_image, _IMAGE_SIZE)
     if (is_training):
-        cropped_image = tf.image.random_flip_left_right(
-            cropped_image, seed=random_seed)
+        cropped_image = tf.image.random_flip_left_right(cropped_image)
 
-    if not use_lmk:
-        return cropped_image
-
-    images = []
-    for i in range(_NUM_LANDMARK):
-        try:
-            lmk_ymin = landmarks[i]['height'] - int(_LOCAL_SIZE / 2)
-            lmk_xmin = landmarks[i]['width'] - int(_LOCAL_SIZE / 2)
-            lmk_box = {
-                'ymin': lmk_ymin,
-                'xmin': lmk_xmin,
-                'ymax': lmk_ymin + _LOCAL_SIZE,
-                'xmax': lmk_xmin + _LOCAL_SIZE
-            }
-            lmk_ymin, lmk_xmin, lmk_height, lmk_width = bbox_bounce(
-                lmk_box, is_training)
-            landmark_local = tf.image.crop_to_bounding_box(
-                origin_image, lmk_ymin, lmk_xmin, lmk_height, lmk_width)
-            landmark_local = aspect_preserving_resize(
-                landmark_local, _IMAGE_SIZE)
-            if (is_training):
-                landmark_local = tf.image.random_flip_left_right(
-                    landmark_local, seed=random_seed)
-        except ValueError:
-            landmark_local = tf.zeros(
-                [_IMAGE_SIZE, _IMAGE_SIZE, _NUM_CHANNELS], tf.float32)
-        images.append(landmark_local)
-
-    image = tf.concat([cropped_image] + images, -1)
-    return image
+    return cropped_image

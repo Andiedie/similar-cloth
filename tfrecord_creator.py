@@ -11,73 +11,33 @@ parser.add_argument('--predict', default=None, nargs='+', type=str, help='specif
 
 _TRAIN_RATE = 0.85
 
-def make_example(filename, label, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2, ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8):
+
+def make_example(filename, label, ymin, xmin, ymax, xmax):
     filename = os.path.join('./data', filename)
     with tf.gfile.GFile(filename, 'rb') as fid:
         image = fid.read()
-    return tf.train.Example(features=tf.train.Features(feature={
-        'image/object/class/label': dataset_util.int64_list_feature(label),
-        'image/imgdata': dataset_util.bytes_feature(image),
-
-        'image/object/bbox/xmin': dataset_util.int64_feature(minx),
-        'image/object/bbox/xmax': dataset_util.int64_feature(maxx),
-        'image/object/bbox/ymin': dataset_util.int64_feature(miny),
-        'image/object/bbox/ymax': dataset_util.int64_feature(maxy),
-
-        'image/object/lmk/lv1': dataset_util.int64_feature(lv1),
-        'image/object/lmk/lx1': dataset_util.int64_feature(lx1),
-        'image/object/lmk/ly1': dataset_util.int64_feature(ly1),
-
-        'image/object/lmk/lv2': dataset_util.int64_feature(lv2),
-        'image/object/lmk/lx2': dataset_util.int64_feature(lx2),
-        'image/object/lmk/ly2': dataset_util.int64_feature(ly2),
-
-        'image/object/lmk/lv3': dataset_util.int64_feature(lv3),
-        'image/object/lmk/lx3': dataset_util.int64_feature(lx3),
-        'image/object/lmk/ly3': dataset_util.int64_feature(ly3),
-
-        'image/object/lmk/lv4': dataset_util.int64_feature(lv4),
-        'image/object/lmk/lx4': dataset_util.int64_feature(lx4),
-        'image/object/lmk/ly4': dataset_util.int64_feature(ly4),
-
-        'image/object/lmk/lv5': dataset_util.int64_feature(lv5),
-        'image/object/lmk/lx5': dataset_util.int64_feature(lx5),
-        'image/object/lmk/ly5': dataset_util.int64_feature(ly5),
-
-        'image/object/lmk/lv6': dataset_util.int64_feature(lv6),
-        'image/object/lmk/lx6': dataset_util.int64_feature(lx6),
-        'image/object/lmk/ly6': dataset_util.int64_feature(ly6),
-
-        'image/object/lmk/lv7': dataset_util.int64_feature(lv7),
-        'image/object/lmk/lx7': dataset_util.int64_feature(lx7),
-        'image/object/lmk/ly7': dataset_util.int64_feature(ly7),
-
-        'image/object/lmk/lv8': dataset_util.int64_feature(lv8),
-        'image/object/lmk/lx8': dataset_util.int64_feature(lx8),
-        'image/object/lmk/ly8': dataset_util.int64_feature(ly8)
-    }))
+    example = tf.train.SequenceExample()
+    # pylint: disable=E1101
+    example.context.feature['image'].bytes_list.value.append(image)
+    example.context.feature['ymin'].int64_list.value.append(ymin)
+    example.context.feature['xmin'].int64_list.value.append(xmin)
+    example.context.feature['ymax'].int64_list.value.append(ymax)
+    example.context.feature['xmax'].int64_list.value.append(xmax)
+    labels = example.feature_lists.feature_list['label']
+    # pylint: enable=E1101
+    for i in label:
+        labels.feature.add().int64_list.value.append(i)
+    return example
 
 
 def main(argv):
     args = parser.parse_args(argv[1:])
-    landmark_raw = []
-    print('reading landmarks...')
-    with open('./data/Anno/list_landmarks_inshop.txt') as f:
-        next(f)
-        next(f)
-        for line in f:
-            line = line.strip()
-            items = list(filter(None, line.split(' ')))
-            landmark_raw.append(items)
     print('reading bbox...')
     bbox_raw = np.loadtxt(
         './data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
-
     if args.predict is None:
         print('shuffling...')
-        combined = list(zip(landmark_raw, bbox_raw))
-        random.shuffle(combined)
-        landmark_raw[:], bbox_raw[:] = zip(*combined)
+        np.random.shuffle(bbox_raw)
 
     print('reading attributes...')
     attr = np.loadtxt('./data/Anno/list_attr_items.txt', skiprows=2, dtype=str)
@@ -92,128 +52,25 @@ def main(argv):
     else:
         pred_writer = tf.python_io.TFRecordWriter('./data/predict.tfrecord')
         if args.predict[0] == 'random':
-            args.predict = [random.choice(landmark_raw)[0]]
+            args.predict = [random.choice(bbox_raw)[0]]
             print('random', args.predict)
 
-    total_num = len(landmark_raw)
-    # bad_num = 0
+    total_num = len(bbox_raw)
     for i in range(total_num):
-        landmark = landmark_raw[i]
         bbox = bbox_raw[i]
-        filename = landmark[0]
+        filename = bbox[0]
         foundIndex = filename.find('id_') + 3
         foundIndex = int(filename[foundIndex:foundIndex+8]) - 1
         label = labels[foundIndex]
-        cloth_type = int(landmark[1])
-        minx = int(bbox[3])
-        miny = int(bbox[4])
-        maxx = int(bbox[5])
-        maxy = int(bbox[6])
+        xmin = int(bbox[3])
+        ymin = int(bbox[4])
+        xmax = int(bbox[5])
+        ymax = int(bbox[6])
         if args.predict is not None:
             if args.predict[0] != 'all' and filename not in args.predict:
                 continue
 
-        if cloth_type == 1:
-            lv1 = int(landmark[3])
-            lx1 = int(landmark[4])
-            ly1 = int(landmark[5])
-
-            lv2 = int(landmark[6])
-            lx2 = int(landmark[7])
-            ly2 = int(landmark[8])
-
-            lv3 = int(landmark[9])
-            lx3 = int(landmark[10])
-            ly3 = int(landmark[11])
-
-            lv4 = int(landmark[12])
-            lx4 = int(landmark[13])
-            ly4 = int(landmark[14])
-
-            lv5 = -1
-            lx5 = -1
-            ly5 = -1
-
-            lv6 = -1
-            lx6 = -1
-            ly6 = -1
-
-            lv7 = int(landmark[15])
-            lx7 = int(landmark[16])
-            ly7 = int(landmark[17])
-
-            lv8 = int(landmark[18])
-            lx8 = int(landmark[19])
-            ly8 = int(landmark[20])
-
-        if cloth_type == 2:
-            lv1 = -1
-            lx1 = -1
-            ly1 = -1
-
-            lv2 = -1
-            lx2 = -1
-            ly2 = -1
-
-            lv3 = -1
-            lx3 = -1
-            ly3 = -1
-
-            lv4 = -1
-            lx4 = -1
-            ly4 = -1
-
-            lv5 = int(landmark[3])
-            lx5 = int(landmark[4])
-            ly5 = int(landmark[5])
-
-            lv6 = int(landmark[6])
-            lx6 = int(landmark[7])
-            ly6 = int(landmark[8])
-
-            lv7 = int(landmark[9])
-            lx7 = int(landmark[10])
-            ly7 = int(landmark[11])
-
-            lv8 = int(landmark[12])
-            lx8 = int(landmark[13])
-            ly8 = int(landmark[14])
-
-        if cloth_type == 3:
-            lv1 = int(landmark[3])
-            lx1 = int(landmark[4])
-            ly1 = int(landmark[5])
-
-            lv2 = int(landmark[6])
-            lx2 = int(landmark[7])
-            ly2 = int(landmark[8])
-
-            lv3 = int(landmark[9])
-            lx3 = int(landmark[10])
-            ly3 = int(landmark[11])
-
-            lv4 = int(landmark[12])
-            lx4 = int(landmark[13])
-            ly4 = int(landmark[14])
-
-            lv5 = int(landmark[15])
-            lx5 = int(landmark[16])
-            ly5 = int(landmark[17])
-
-            lv6 = int(landmark[18])
-            lx6 = int(landmark[19])
-            ly6 = int(landmark[20])
-
-            lv7 = int(landmark[21])
-            lx7 = int(landmark[22])
-            ly7 = int(landmark[23])
-
-            lv8 = int(landmark[24])
-            lx8 = int(landmark[25])
-            ly8 = int(landmark[26])
-
-        example = make_example(filename, label, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2,
-                               ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8)
+        example = make_example(filename, label, ymin, xmin, ymax, xmax)
 
         if (args.sample > 0):
             if (i < args.sample):

@@ -11,60 +11,42 @@ _NUM_IMAGES = {
     'test': 0
 }
 
-def parse_record(raw_record, is_training, use_lmk):
-    feature_map = {
-        'image/imgdata': tf.FixedLenFeature([], dtype=tf.string),
-        'image/object/class/label': tf.FixedLenFeature([_NUM_CLASSES], dtype=tf.int64),
-        'image/object/bbox/xmin': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/bbox/ymin': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/bbox/xmax': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/bbox/ymax': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx1': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly1': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx2': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly2': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx3': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly3': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx4': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly4': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx5': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly5': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx6': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly6': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx7': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly7': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/lx8': tf.FixedLenFeature([], dtype=tf.int64),
-        'image/object/lmk/ly8': tf.FixedLenFeature([], dtype=tf.int64)
+def parse_record(raw_record, is_training):
+    context_features = {
+        'image': tf.FixedLenFeature([], dtype=tf.string),
+        'xmin': tf.FixedLenFeature([], dtype=tf.int64),
+        'ymin': tf.FixedLenFeature([], dtype=tf.int64),
+        'xmax': tf.FixedLenFeature([], dtype=tf.int64),
+        'ymax': tf.FixedLenFeature([], dtype=tf.int64)
     }
-    features = tf.parse_single_example(raw_record, feature_map)
+    sequence_features = {
+        'label': tf.FixedLenSequenceFeature([], dtype=tf.int64)
+    }
+    context_parsed, sequence_parsed = tf.parse_single_sequence_example(
+        serialized=raw_record,
+        context_features=context_features,
+        sequence_features=sequence_features
+    )
     bbox = {
-        'ymin': features['image/object/bbox/ymin'],
-        'xmin': features['image/object/bbox/xmin'],
-        'ymax': features['image/object/bbox/ymax'],
-        'xmax': features['image/object/bbox/xmax']
+        'ymin': context_parsed['ymin'],
+        'xmin': context_parsed['xmin'],
+        'ymax': context_parsed['ymax'],
+        'xmax': context_parsed['xmax']
     }
-
-    landmarks = [
-        {
-            'height': features['image/object/lmk/ly%d' % (i + 1)],
-            'width': features['image/object/lmk/lx%d' % (i + 1)]
-        } for i in range(pi._NUM_LANDMARK)
-    ]
-    image_buffer = features['image/imgdata']
-    label = features['image/object/class/label']
-
-    image = pi.preprocess(image_buffer, is_training, use_lmk, bbox, landmarks)
+    image_buffer = context_parsed['image']
+    label = sequence_parsed['label']
+    image = pi.preprocess(image_buffer, is_training, bbox)
 
     return image, label
 
 
-def input_fn(is_training, use_lmk, data_path, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
+def input_fn(is_training, data_path, batch_size, num_epochs=1, num_parallel_calls=1, multi_gpu=False):
     dataset = tf.data.TFRecordDataset(
         [data_path], num_parallel_reads=num_parallel_calls)
 
     num_images = is_training and _NUM_IMAGES['train'] or _NUM_IMAGES['test']
 
-    return resnet_run_loop.process_record_dataset(dataset, is_training, use_lmk, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
+    return resnet_run_loop.process_record_dataset(dataset, is_training, batch_size, num_images, parse_record, num_epochs, num_parallel_calls, examples_per_epoch=num_images, multi_gpu=multi_gpu)
 
 
 class Model(resnet_model.Model):
@@ -132,12 +114,11 @@ def main(argv):
 
     parser.set_defaults(
         train_epochs=100,
-        data_dir='./data'
+        data_dir='./data',
+        model_dir='./model'
     )
 
     flags = parser.parse_args(args=argv[1:])
-
-    flags.model_dir = './lmk-model' if flags.use_lmk else './no-lmk-model'
 
     train_path = os.path.join(flags.data_dir, 'train.tfrecord')
     test_path = os.path.join(flags.data_dir, 'test.tfrecord')
@@ -145,17 +126,15 @@ def main(argv):
     _NUM_IMAGES['test'] = sum(1 for _ in tf.python_io.tf_record_iterator(test_path))
 
     # batch_size=32
-    # use-lmk = 0
     # data_dir = './data',
-    # model_dir = './no-lmk-model'
+    # model_dir = './model'
     # resnet_size = 50
     # version = 2
     # train_epochs = 100
     # epochs_between_evals = 1
     # max_train_steps = None
 
-    resnet_run_loop.resnet_main(flags, model_fn, input_fn, shape=[
-                                pi._IMAGE_SIZE, pi._IMAGE_SIZE, pi._NUM_CHANNELS])
+    resnet_run_loop.resnet_main(flags, model_fn, input_fn)
 
 
 if __name__ == '__main__':

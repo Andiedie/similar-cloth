@@ -38,7 +38,7 @@ from utils import logger
 ################################################################################
 # Functions for input processing.
 ################################################################################
-def process_record_dataset(dataset, is_training, use_lmk, batch_size, shuffle_buffer,
+def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
                            parse_record_fn, num_epochs=1, num_parallel_calls=1,
                            examples_per_epoch=0, multi_gpu=False):
     """Given a Dataset with raw records, return an iterator over the records.
@@ -91,7 +91,7 @@ def process_record_dataset(dataset, is_training, use_lmk, batch_size, shuffle_bu
         dataset = dataset.take(batch_size * (total_examples // batch_size))
 
     # Parse the raw records into images and labels
-    dataset = dataset.map(lambda value: parse_record_fn(value, is_training, use_lmk),
+    dataset = dataset.map(lambda value: parse_record_fn(value, is_training),
                           num_parallel_calls=num_parallel_calls)
 
     dataset = dataset.batch(batch_size)
@@ -375,7 +375,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
         data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
 
         def input_fn_pred():
-            return input_function(False, flags.use_lmk, data_path, flags.batch_size,
+            return input_function(False, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
 
@@ -414,7 +414,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
 
         def input_fn_train():
             data_path = os.path.join(flags.data_dir, 'train.tfrecord')
-            return input_function(True, flags.use_lmk, data_path, flags.batch_size,
+            return input_function(True, data_path, flags.batch_size,
                                   flags.epochs_between_evals,
                                   flags.num_parallel_calls, flags.multi_gpu)
 
@@ -426,7 +426,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
 
         def input_fn_eval():
             data_path = os.path.join(flags.data_dir, 'test.tfrecord')
-            return input_function(False, flags.use_lmk, data_path, flags.batch_size,
+            return input_function(False, data_path, flags.batch_size,
                                   1, flags.num_parallel_calls, flags.multi_gpu)
 
         # flags.max_train_steps is generally associated with testing and profiling.
@@ -484,11 +484,6 @@ class ResnetArgParser(argparse.ArgumentParser):
             choices=resnet_size_choices,
             help='[default: %(default)s] The size of the ResNet model to use.',
             metavar='<RS>' if resnet_size_choices is None else None
-        )
-
-        self.add_argument(
-            '--use_lmk', '-lmk', type=int, default=0,
-            help='[default: %(default)s] Use landmark or not'
         )
 
         self.add_argument(
