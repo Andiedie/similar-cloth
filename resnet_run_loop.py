@@ -218,7 +218,7 @@ def resnet_model_fn(features, labels, mode, model_class,
 
     predictions = {
         'classes': tf.argmax(logits, axis=1),
-        'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
+        # 'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
         'logits': logits
     }
 
@@ -232,8 +232,8 @@ def resnet_model_fn(features, labels, mode, model_class,
             })
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.losses.softmax_cross_entropy(
-        logits=logits, onehot_labels=labels)
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(
+        logits=logits, labels=tf.cast(labels, tf.float32))
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')

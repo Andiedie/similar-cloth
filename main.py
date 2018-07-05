@@ -5,7 +5,7 @@ import resnet_model
 import resnet_run_loop
 import preprocess_image as pi
 
-_NUM_CLASSES = 23
+_NUM_CLASSES = 463
 _NUM_IMAGES = {
     'train': 0,
     'test': 0
@@ -14,7 +14,7 @@ _NUM_IMAGES = {
 def parse_record(raw_record, is_training, use_lmk):
     feature_map = {
         'image/imgdata': tf.FixedLenFeature([], dtype=tf.string),
-        'image/object/class/label': tf.FixedLenFeature([], dtype=tf.int64),
+        'image/object/class/label': tf.FixedLenFeature([_NUM_CLASSES], dtype=tf.int64),
         'image/object/bbox/xmin': tf.FixedLenFeature([], dtype=tf.int64),
         'image/object/bbox/ymin': tf.FixedLenFeature([], dtype=tf.int64),
         'image/object/bbox/xmax': tf.FixedLenFeature([], dtype=tf.int64),
@@ -51,7 +51,7 @@ def parse_record(raw_record, is_training, use_lmk):
         } for i in range(pi._NUM_LANDMARK)
     ]
     image_buffer = features['image/imgdata']
-    label = tf.one_hot(features['image/object/class/label'], _NUM_CLASSES)
+    label = features['image/object/class/label']
 
     image = pi.preprocess(image_buffer, is_training, use_lmk, bbox, landmarks)
 

@@ -10,41 +10,13 @@ parser.add_argument('--sample', default=0, type=int, help='sample size')
 parser.add_argument('--predict', default=None, nargs='+', type=str, help='specific image to predict, can be all or random')
 
 _TRAIN_RATE = 0.85
-rank = [
-    "MEN/Denim",
-    "MEN/Jackets_Vests",
-    "MEN/Pants",
-    "MEN/Shirts_Polos",
-    "MEN/Shorts",
-    "MEN/Suiting",
-    "MEN/Sweaters",
-    "MEN/Sweatshirts_Hoodies",
-    'MEN/Tees_Tanks',
-    "WOMEN/Blouses_Shirts",
-    "WOMEN/Cardigans",
-    "WOMEN/Denim",
-    "WOMEN/Dresses",
-    "WOMEN/Graphic_Tees",
-    "WOMEN/Jackets_Coats",
-    "WOMEN/Leggings",
-    "WOMEN/Pants",
-    "WOMEN/Rompers_Jumpsuits",
-    "WOMEN/Shorts",
-    "WOMEN/Skirts",
-    "WOMEN/Sweaters",
-    "WOMEN/Sweatshirts_Hoodies",
-    "WOMEN/Tees_Tanks"
-]
 
-
-def make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2, ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8):
-    label = filename[4:filename.find('/id')]
-    label = rank.index(label)
+def make_example(filename, label, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2, ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8):
     filename = os.path.join('./data', filename)
     with tf.gfile.GFile(filename, 'rb') as fid:
         image = fid.read()
     return tf.train.Example(features=tf.train.Features(feature={
-        'image/object/class/label': dataset_util.int64_feature(label),
+        'image/object/class/label': dataset_util.int64_list_feature(label),
         'image/imgdata': dataset_util.bytes_feature(image),
 
         'image/object/bbox/xmin': dataset_util.int64_feature(minx),
@@ -100,11 +72,19 @@ def main(argv):
     print('reading bbox...')
     bbox_raw = np.loadtxt(
         './data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
+
     if args.predict is None:
         print('shuffling...')
         combined = list(zip(landmark_raw, bbox_raw))
         random.shuffle(combined)
         landmark_raw[:], bbox_raw[:] = zip(*combined)
+
+    print('reading attributes...')
+    attr = np.loadtxt('./data/Anno/list_attr_items.txt', skiprows=2, dtype=str)
+    attr = np.unique(attr, axis=0)
+    labels = attr[:,1:].astype(np.int)
+    labels = np.vectorize(lambda x: 0 if x == -1 else 1)(labels)
+
     print('writting...')
     if args.predict is None:
         train_writer = tf.python_io.TFRecordWriter('./data/train.tfrecord')
@@ -121,6 +101,9 @@ def main(argv):
         landmark = landmark_raw[i]
         bbox = bbox_raw[i]
         filename = landmark[0]
+        foundIndex = filename.find('id_') + 3
+        foundIndex = int(filename[foundIndex:foundIndex+8]) - 1
+        label = labels[foundIndex]
         cloth_type = int(landmark[1])
         minx = int(bbox[3])
         miny = int(bbox[4])
@@ -129,16 +112,6 @@ def main(argv):
         if args.predict is not None:
             if args.predict[0] != 'all' and filename not in args.predict:
                 continue
-        # For checking bad bbox
-        # bbox_height = maxy - miny
-        # bbox_width = maxx - minx
-        # min_dim = min(bbox_height, bbox_width)
-        # max_dim = max(bbox_height, bbox_width)
-        # flag = True if (max_dim / min_dim > 4.5 and cloth_type != 3) else False
-        # if (flag):
-        #     bad_num += 1
-        #     total_num -= 1
-        #     continue
 
         if cloth_type == 1:
             lv1 = int(landmark[3])
@@ -239,7 +212,7 @@ def main(argv):
             lx8 = int(landmark[25])
             ly8 = int(landmark[26])
 
-        example = make_example(filename, cloth_type, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2,
+        example = make_example(filename, label, minx, miny, maxx, maxy, lv1, lx1, ly1, lv2, lx2,
                                ly2, lv3, lx3, ly3, lv4, lx4, ly4, lv5, lx5, ly5, lv6, lx6, ly6, lv7, lx7, ly7, lv8, lx8, ly8)
 
         if (args.sample > 0):
@@ -259,7 +232,6 @@ def main(argv):
         if (i % 1000 == 0):
             print(i, 'done')
 
-    # print('bad bbox number:', bad_num)
     if args.predict is None:
         train_writer.close()
         test_writer.close()
