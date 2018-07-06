@@ -1,14 +1,14 @@
-import tensorflow as tf
 import os
 import main
-import preprocess_image as pi
 import pickle
 import database
+import tensorflow as tf
+import preprocess_image as pi
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 __dirname = os.path.dirname(__file__)
-model_path = os.path.join(__dirname, './no-lmk-model')
+model_path = os.path.join(__dirname, './model')
 filename = pickle.load(open(os.path.join(__dirname, './filename.pickle'), 'rb'))
 
 # 只在预测时占用50%的显存
@@ -29,12 +29,12 @@ clf = tf.estimator.Estimator(
 def _input_fn(image_path, ymin, xmin, ymax, xmax):
     with open(image_path, 'rb') as f:
         image_buffer = f.read()
-    image = pi.preprocess(image_buffer, False, False, {
+    image = pi.preprocess(image_buffer, False, {
         'ymin': ymin,
         'xmin': xmin,
         'ymax': ymax,
         'xmax': xmax
-    }, None)
+    })
     dataset = tf.data.Dataset.from_tensor_slices([image]).batch(1)
     return dataset
 
@@ -66,7 +66,8 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5):
     result = clf.predict(lambda: _input_fn(
         image_path, ymin, xmin, ymax, xmax))
     vector = list(result)[0]['logits']
-    top = database.topN(vector, n=top)
+    top = database.topN(
+        vector, n=top, method=database._METHOD.Euclidean_Distance)
     return filename[top]
 
 
