@@ -35,6 +35,8 @@ def parse_record(raw_record, is_training):
     }
     image_buffer = context_parsed['image']
     label = sequence_parsed['label']
+    label.set_shape((_NUM_CLASSES))
+
     image = pi.preprocess(image_buffer, is_training, bbox)
 
     return image, label

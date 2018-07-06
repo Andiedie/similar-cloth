@@ -232,8 +232,8 @@ def resnet_model_fn(features, labels, mode, model_class,
             })
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(
-        logits=logits, labels=tf.cast(labels, tf.float32))
+    cross_entropy = tf.losses.sigmoid_cross_entropy(
+        logits=logits, multi_class_labels=labels)
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
