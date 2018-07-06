@@ -217,8 +217,9 @@ def resnet_model_fn(features, labels, mode, model_class,
     logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
 
     predictions = {
-        'classes': tf.argmax(logits, axis=1),
+        # 'classes': tf.argmax(logits, axis=1),
         # 'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
+        'probabilities': tf.sigmoid(logits, name='sigmoid_tensor'),
         'logits': logits
     }
 
@@ -274,8 +275,15 @@ def resnet_model_fn(features, labels, mode, model_class,
     else:
         train_op = None
 
-    accuracy = tf.metrics.accuracy(
-        tf.argmax(labels, axis=1), predictions['classes'])
+    # accuracy = tf.metrics.accuracy(
+    #     tf.argmax(labels, axis=1), predictions['classes'])
+    # metrics = {'accuracy': accuracy}
+
+    accuracy = tf.metrics.mean_absolute_error(
+        tf.cast(labels, tf.float32), predictions['probabilities']
+    )
+    accuracy = (tf.constant(1, tf.float32) -
+                accuracy[0], tf.constant(1, tf.float32) - accuracy[1])
     metrics = {'accuracy': accuracy}
 
     # Create a tensor named train_accuracy for logging purposes
