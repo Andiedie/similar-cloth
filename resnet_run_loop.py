@@ -396,16 +396,6 @@ def resnet_main(flags, model_function, input_function, shape=None):
             count += 1
         return
 
-    if flags.predict is not None:
-        import numpy as np
-        for one in result:
-            method = database._METHOD.Cosine_Similarity if flags.predict == 'cos' else database._METHOD.Euclidean_Distance
-            top = database.topN(one['logits'], method=method)
-            raw = np.loadtxt('./data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
-            path = raw[top][:,0]
-            print(path)
-            return
-
     if flags.benchmark_log_dir is not None:
         benchmark_logger = logger.BenchmarkLogger(flags.benchmark_log_dir)
         benchmark_logger.log_run_info("resnet")
@@ -492,11 +482,6 @@ class ResnetArgParser(argparse.ArgumentParser):
             choices=resnet_size_choices,
             help='[default: %(default)s] The size of the ResNet model to use.',
             metavar='<RS>' if resnet_size_choices is None else None
-        )
-
-        self.add_argument(
-            '--predict', '-pred', type=str, default=None,
-            help='[default: %(default)s] Predict method, cos or euc'
         )
 
         self.add_argument(
