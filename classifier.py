@@ -1,9 +1,9 @@
 import os
-import main
+from . import main
 import pickle
-import database
+from . import database
 import tensorflow as tf
-import preprocess_image as pi
+from . import preprocess_image as pi
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 

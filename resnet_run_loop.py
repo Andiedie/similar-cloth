@@ -28,11 +28,11 @@ import os
 
 import tensorflow as tf
 
-import resnet_model
-from utils import parsers
-from utils import export
-from utils import hooks_helper
-from utils import logger
+from . import resnet_model
+from .utils import parsers
+from .utils import export
+from .utils import hooks_helper
+from .utils import logger
 
 
 ################################################################################

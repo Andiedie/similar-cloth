@@ -1,9 +1,9 @@
 import os
 import sys
 import tensorflow as tf
-import resnet_model
-import resnet_run_loop
-import preprocess_image as pi
+from . import resnet_model
+from . import resnet_run_loop
+from . import preprocess_image as pi
 
 _NUM_CLASSES = 463
 _NUM_IMAGES = {
