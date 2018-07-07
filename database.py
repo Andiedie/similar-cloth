@@ -3,7 +3,6 @@ import numpy as np
 import os
 from enum import Enum
 _DATABASE_PATH = './database.csv'
-_METHOD = Enum('Method', ('Cosine_Similarity', 'Euclidean_Distance'))
 
 if not os.path.isfile(_DATABASE_PATH):
     pandas.DataFrame(data=[], columns=['key', 'value']).to_csv(_DATABASE_PATH, index=False)
@@ -23,15 +22,15 @@ def _euclidean_distance(vec1, vec2):
     return np.linalg.norm(vec1 - vec2)
 
 
-def topN(vec, n=5, method=_METHOD.Cosine_Similarity):
+def topN(vec, n=5, method='cos'):
     df = pandas.read_csv(_DATABASE_PATH)
     keys = []
     values = []
     for _, row in df.iterrows():
         temp = np.array([float(x) for x in row['value'].split(',')])
-        if method == _METHOD.Cosine_Similarity:
+        if method == 'cos':
             value = _cosine_similarity(vec, temp)
-        elif method == _METHOD.Euclidean_Distance:
+        elif method == 'euc':
             value = -1 * _euclidean_distance(vec, temp)
         else:
             raise Exception('Unknown Method')
