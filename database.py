@@ -1,8 +1,8 @@
+import os
 import pandas
 import numpy as np
-import os
-from enum import Enum
-_DATABASE_PATH = './database.csv'
+__dirname = os.path.dirname(__file__)
+_DATABASE_PATH = os.path.join(__dirname, './database.csv')
 
 if not os.path.isfile(_DATABASE_PATH):
     pandas.DataFrame(data=[], columns=['key', 'value']).to_csv(_DATABASE_PATH, index=False)
