@@ -45,7 +45,7 @@ def _input_fn_v2(cropped):
     return dataset
 
 
-def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5):
+def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cos'):
     """
     Get clothes similar to the given one from the database
 
@@ -56,6 +56,7 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5):
         ymin: The ordinate of the lower right point of the bounding box
         ymin: The abscissa of the lower right point of the bounding box
         top: Number of the similar clothes, default to 5
+        method: method to calculate distance, default to 'cos'
     Returns:
         list of filenames of the most similar cloths, like
         [
@@ -67,11 +68,11 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5):
         image_path, ymin, xmin, ymax, xmax))
     vector = list(result)[0]['logits']
     top = database.topN(
-        vector, n=top, method=database._METHOD.Euclidean_Distance)
+        vector, n=top, method=method)
     return filename[top]
 
 
-def similar_cloth_v2(cropped, top=5):
+def similar_cloth_v2(cropped, top=5, method='cos'):
     """
     Get clothes similar to the given one from the database
 
@@ -82,6 +83,7 @@ def similar_cloth_v2(cropped, top=5):
         cropped: 3-D Tensor of shape [height, width, channels], represents
             the cropped image of the input cloth
         top: Number of the similar clothes, default to 5
+        method: method to calculate distance, default to 'cos'
     Returns:
         list of filenames of the most similar cloths, like
         [
@@ -91,5 +93,5 @@ def similar_cloth_v2(cropped, top=5):
     """
     result = clf.predict(lambda: _input_fn_v2(cropped))
     vector = list(result)[0]['logits']
-    top = database.topN(vector, n=top)
+    top = database.topN(vector, n=top, method=method)
     return filename[top]
