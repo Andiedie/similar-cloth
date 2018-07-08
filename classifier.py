@@ -7,9 +7,11 @@ from . import database
 import tensorflow as tf
 from . import preprocess_image as pi
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+tf.logging.set_verbosity(tf.logging.ERROR)
+
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-tf.logging.set_verbosity(tf.logging.ERROR)
 
 __dirname = os.path.dirname(__file__)
 model_path = os.path.join(__dirname, './model')
@@ -17,7 +19,7 @@ filename = pickle.load(open(os.path.join(__dirname, './filename.pickle'), 'rb'))
 logging.info('database loaded')
 
 # 动态申请显存
-gpu_options = tf.GPUOptions(allow_growth=True)
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=True)
 session_config = tf.ConfigProto(gpu_options=gpu_options)
 run_config = tf.estimator.RunConfig().replace(session_config=session_config)
 clf = tf.estimator.Estimator(
@@ -66,7 +68,7 @@ def process_image(image_path, ymin, xmin, ymax, xmax):
     next_image = temp
 
 
-def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cos'):
+def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cosine'):
     """
     Get clothes similar to the given one from the database
 
@@ -77,7 +79,7 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cos'):
         ymin: The ordinate of the lower right point of the bounding box
         ymin: The abscissa of the lower right point of the bounding box
         top: Number of the similar clothes, default to 5
-        method: method to calculate distance, default to 'cos'
+        method: method to calculate distance, default to 'cosine'
     Returns:
         list of filenames of the most similar cloths, like
         [

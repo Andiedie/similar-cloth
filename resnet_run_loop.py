@@ -390,10 +390,10 @@ def resnet_main(flags, model_function, input_function, shape=None):
         result = classifier.predict(input_fn=input_fn_pred)
 
     if flags.build_database:
-        count = 0
+        results = []
         for one in result:
-            database.store(str(count), one['logits'])
-            count += 1
+            results.append(one['logits'])
+        database.store(results)
         return
 
     if flags.benchmark_log_dir is not None:
