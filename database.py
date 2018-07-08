@@ -6,12 +6,16 @@ _DATABASE_PATH = os.path.join(__dirname, './database.csv')
 
 if not os.path.isfile(_DATABASE_PATH):
     pandas.DataFrame(data=[], columns=['key', 'value']).to_csv(_DATABASE_PATH, index=False)
+df = pandas.read_csv(_DATABASE_PATH)
+dirty = False
 
 def store(key, vec):
+    global dirty
     pandas.DataFrame(data=[{
         'key': key,
         'value': ','.join(str(x) for x in vec)
     }]).to_csv(_DATABASE_PATH, mode='a', header=False, index=False)
+    dirty = True
 
 
 def _cosine_similarity(vec1, vec2):
@@ -23,7 +27,10 @@ def _euclidean_distance(vec1, vec2):
 
 
 def topN(vec, n=5, method='cos'):
-    df = pandas.read_csv(_DATABASE_PATH)
+    global dirty, df
+    if dirty:
+        df = pandas.read_csv(_DATABASE_PATH)
+        dirty = False
     keys = []
     values = []
     for _, row in df.iterrows():

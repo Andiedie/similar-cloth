@@ -1,16 +1,20 @@
 import os
 import pickle
+import logging
 from . import main
 from PIL import Image
 from . import database
 import tensorflow as tf
 from . import preprocess_image as pi
 
+LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 __dirname = os.path.dirname(__file__)
 model_path = os.path.join(__dirname, './model')
 filename = pickle.load(open(os.path.join(__dirname, './filename.pickle'), 'rb'))
+logging.info('database loaded')
 
 # 动态申请显存
 gpu_options = tf.GPUOptions(allow_growth=True)
@@ -38,7 +42,9 @@ def input_fn(generator):
 
 
 result = clf.predict(lambda: input_fn(gen))
+logging.info('graph loaded')
 next(result)
+logging.info('session ready')
 
 def process_image(image_path, ymin, xmin, ymax, xmax):
     global next_image
@@ -79,7 +85,10 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cos'):
             'img/WOMEN/Blouses_Shirts/id_00000001/02_2_side.jpg'
         ]
     """
+    logging.info('preprocessing image')
     process_image(image_path, ymin, xmin, ymax, xmax)
+    logging.info('model running')
     vector = next(result)['logits']
+    logging.info('searching database')
     top = database.topN(vector, n=top, method=method)
     return filename[top]
