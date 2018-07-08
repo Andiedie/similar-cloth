@@ -28,11 +28,11 @@ import os
 
 import tensorflow as tf
 
-from . import resnet_model
-from .utils import parsers
-from .utils import export
-from .utils import hooks_helper
-from .utils import logger
+import resnet_model
+from utils import parsers
+from utils import export
+from utils import hooks_helper
+from utils import logger
 
 
 ################################################################################
@@ -378,7 +378,7 @@ def resnet_main(flags, model_function, input_function, shape=None):
             'version': flags.version,
         })
 
-    if flags.build_database or flags.predict is not None:
+    if flags.build_database:
         import database
         data_path = os.path.join(flags.data_dir, 'predict.tfrecord')
 
