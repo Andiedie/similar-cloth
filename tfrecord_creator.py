@@ -2,7 +2,6 @@ import os
 import logging
 import argparse
 import numpy as np
-import dataset_util
 import tensorflow as tf
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"

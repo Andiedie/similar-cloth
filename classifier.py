@@ -1,5 +1,5 @@
 import os
-import pickle
+import numpy as np
 import logging
 from . import main
 from PIL import Image
@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
 __dirname = os.path.dirname(__file__)
 model_path = os.path.join(__dirname, './model')
-filename = pickle.load(open(os.path.join(__dirname, './filename.pickle'), 'rb'))
+filename = np.load(os.path.join(__dirname, './filename.npy'))
 logging.info('database loaded')
 
 # 动态申请显存
