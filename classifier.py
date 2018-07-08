@@ -1,24 +1,30 @@
+import logging
+LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+
+logging.info('loading dependencies')
 import os
 import numpy as np
-import logging
-from . import main
 from PIL import Image
-from . import database
 import tensorflow as tf
-from . import preprocess_image as pi
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 tf.logging.set_verbosity(tf.logging.ERROR)
 
-LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-
 __dirname = os.path.dirname(__file__)
 model_path = os.path.join(__dirname, './model')
-filename = np.load(os.path.join(__dirname, './filename.npy'))
-logging.info('database loaded')
 
-# 动态申请显存
+import sys
+sys.path.append(os.path.join(__dirname))
+
+logging.info('loading database')
+import database
+filename = np.load(os.path.join(__dirname, './filename.npy'))
+
+logging.info('loading graph')
+import preprocess_image as pi
+import main
+
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=True)
 session_config = tf.ConfigProto(gpu_options=gpu_options)
 run_config = tf.estimator.RunConfig().replace(session_config=session_config)
@@ -32,21 +38,22 @@ clf = tf.estimator.Estimator(
         'version': 2,
     })
 
-
 next_image = None
 def gen():
     yield Image.new('RGB', (pi._IMAGE_SIZE, pi._IMAGE_SIZE), (0, 0, 0))
     while True:
         yield next_image
 
+
 def input_fn(generator):
     return tf.data.Dataset.from_generator(generator, (tf.float32), (256, 256, 3)).batch(1)
 
 
 result = clf.predict(lambda: input_fn(gen))
-logging.info('graph loaded')
+
+logging.info('loading session')
 next(result)
-logging.info('session ready')
+logging.info('ready')
 
 def process_image(image_path, ymin, xmin, ymax, xmax):
     global next_image
@@ -87,10 +94,7 @@ def similar_cloth(image_path, ymin, xmin, ymax, xmax, top=5, method='cosine'):
             'img/WOMEN/Blouses_Shirts/id_00000001/02_2_side.jpg'
         ]
     """
-    logging.info('preprocessing image')
     process_image(image_path, ymin, xmin, ymax, xmax)
-    logging.info('model running')
     vector = next(result)['logits']
-    logging.info('searching database')
     top = database.topN(vector, n=top, method=method)
     return filename[top]
