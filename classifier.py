@@ -1,6 +1,6 @@
 import logging
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 logging.info('loading dependencies')
 import os
