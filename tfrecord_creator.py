@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] - %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--predict', default=False, type=bool, help='write predict.tfrecord')
@@ -34,20 +34,20 @@ def make_example(filename, label, ymin, xmin, ymax, xmax):
 def main(argv):
     args = parser.parse_args(argv[1:])
 
-    print('reading bbox...')
+    logging.info('reading bbox...')
     bbox_raw = np.loadtxt('./data/Anno/list_bbox_inshop.txt', skiprows=2, dtype='str')
 
-    print('reading attributes...')
+    logging.info('reading attributes...')
     attr = np.loadtxt('./data/Anno/list_attr_items.txt', skiprows=2, dtype=str)
     attr = np.unique(attr, axis=0)
     labels = attr[:,1:].astype(np.int)
     labels = np.vectorize(lambda x: 0 if x == -1 else 1)(labels)
 
     if not args.predict:
-        print('shuffling...')
+        logging.info('shuffling...')
         np.random.shuffle(bbox_raw)
     
-    print('writting...')
+    logging.info('writting...')
     if args.predict is None:
         train_writer = tf.python_io.TFRecordWriter('./data/train.tfrecord')
         test_writer = tf.python_io.TFRecordWriter('./data/test.tfrecord')
@@ -77,7 +77,7 @@ def main(argv):
 
         writer.write(example.SerializeToString())
         if (i % 1000 == 0):
-            print(i, 'done')
+            logging.info('%d done' % (i))
 
     if not args.predict:
         train_writer.close()
@@ -86,13 +86,13 @@ def main(argv):
             './data/train.tfrecord'))
         test_num = sum(1 for _ in tf.python_io.tf_record_iterator(
             './data/test.tfrecord'))
-        print('train data number:', train_num)
-        print('test data number:', test_num)
+        logging.info('train data number:', train_num)
+        logging.info('test data number:', test_num)
     else:
         pred_writer.close()
         pred_num = sum(1 for _ in tf.python_io.tf_record_iterator(
             './data/predict.tfrecord'))
-        print('predict data number:', pred_num)
+        logging.info('predict data number:', pred_num)
     
 
 
