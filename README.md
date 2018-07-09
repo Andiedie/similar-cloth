@@ -73,3 +73,8 @@ similar_cloths = clf.similar_cloth(
   bbox_xmax,
 )
 ```
+
+## Preview
+![1530955068048](https://user-images.githubusercontent.com/21376471/42438113-b10962fc-8391-11e8-8a9c-c6de4978259e.png)
+
+![1530955184146](https://user-images.githubusercontent.com/21376471/42438116-b166e4ae-8391-11e8-9568-e476926168c8.png)
